@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Consulta de Reportes - EOSEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen overflow-hidden p-4 flex flex-col bg-[url('{% static "img/fondo.jpg" %}')] bg-cover bg-center bg-fixed">
+
+    <!-- 2. max-h-full y flex flex-col para que el contenedor se ajuste al alto disponible -->
+    <div class="max-w-3xl mx-auto w-full h-full max-h-[95vh] backdrop-blur-xl bg-white/40 p-6 rounded-3xl shadow-2xl border border-white/50 flex flex-col">
+        
+        <h1 class="text-2xl font-black mb-4 text-center text-gray-800 flex-none">CONSULTA DE REPORTES</h1>
+
+        <form method="GET" class="flex gap-2 mb-4 flex-none">
+            <input name="q" value="{{ request.GET.q }}" placeholder="Código o nombre..." 
+                class="flex-1 border-2 border-white/60 bg-white/50 p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+            <button type="submit" class="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700 text-sm">Buscar</button>
+        </form>
+
+        <!-- 3. Contenedor de resultados con scroll interno -->
+        <div id="resultado" class="flex-1 overflow-hidden flex flex-col">
+            {% if estudiante %}
+                <!-- Datos del estudiante (fijos arriba) -->
+                <div class="bg-white/80 p-4 rounded-2xl shadow-sm mb-4 border-l-8 border-blue-500 flex-none">
+                    <h2 class="font-bold text-xl text-blue-900">{{ estudiante.nombre }}</h2>
+                    <div class="grid grid-cols-2 mt-1 text-xs text-gray-700">
+                        <p><b>Código:</b> {{ estudiante.codigo }}</p>
+                        <p><b>Grado:</b> {{ estudiante.grado }}</p>
+                        <p><b>Acudiente:</b> {{ estudiante.acudiente|default:"N/A" }}</p>
+                        <p><b>Celular:</b> {{ estudiante.celular|default:"N/A" }}</p>
+                    </div>
+                </div>
+
+                <h3 class="font-bold mb-2 text-sm flex-none">Historial de Observaciones:</h3>
+                
+                <!-- LISTA CON SCROLL: flex-1 y overflow-y-auto -->
+                <div class="flex-1 overflow-y-auto pr-2 space-y-3 custom-scroll">
+                    {% for r in reportes %}
+                        <div class="p-3 rounded-xl shadow-md border-l-4 
+                            {% if r.tipo == 'ftl' %} bg-green-100 border-green-500
+                            {% elif r.tipo == 'ftg' %} bg-yellow-100 border-yellow-500
+                            {% elif r.tipo == 'ftgr' %} bg-red-100 border-red-500
+                            {% else %} bg-blue-100 border-blue-500 {% endif %}">
+                            
+                            <div class="flex justify-between items-start mb-1">
+                                <b class="uppercase text-[10px]">{{ r.get_tipo_display }}</b>
+                                <span class="text-[9px] font-mono bg-white/50 px-2 py-0.5 rounded">{{ r.fecha }}</span>
+                            </div>
+                            <p class="text-gray-800 italic text-xs">"{{ r.descripcion }}"</p>
+                        </div>
+                    {% empty %}
+                        <p class="text-center text-gray-500 py-6 text-sm">Este estudiante no tiene reportes. 🎉</p>
+                    {% endfor %}
+                </div>
+
+            {% elif request.GET.q %}
+                <p class="text-center text-red-600 font-bold bg-white/80 p-4 rounded-xl text-sm">Estudiante no encontrado.</p>
+            {% endif %}
+        </div>
+
+        <!-- 4. Botón volver (siempre visible abajo) -->
+        <div class="text-center mt-4 flex-none">
+            <a href="{% url 'dashboard' %}" class="inline-block bg-gray-800 text-white px-6 py-2 rounded-xl hover:bg-black transition font-bold shadow-lg text-sm">
+                Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>INICIO DE SESION</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[url('{% static "img/fondo_dos.jpg" %}')] bg-cover bg-center bg-no-repeat">
+    <div class="flex items-center justify-center min-h-screen">
+        <div class="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl w-[350px] text-center">
+            <div class="flex flex-col items-center font-extrabold justify-center mb-4">
+                <img src="{% static 'img/logotipo.png' %}" class="w-24 h-24">
+                <h1 class="p-2">INICIO DE SESION</h1>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <p class="text-red-500 text-sm mb-3">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="text" name="username" placeholder="Usuario" class="w-full mb-3 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" required>
+                <input type="password" name="password" placeholder="Contraseña" class="w-full mb-4 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" required>
+                <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition">
+                    Iniciar sesión
+                </button>
+            </form>
+            <p class="text-xs mt-4 text-gray-600">Escuela Obra Social El Milagro</p>
+        </div>
+    </div>
+</body>
+</html>

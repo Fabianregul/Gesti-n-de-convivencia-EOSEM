@@ -1,0 +1,218 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - EOSEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="flex justify-center flex-col h-screen overflow-hidden bg-[url('{% static "img/fondo.jpg" %}')] bg-cover bg-center bg-fixed bg-no-repeat">
+    
+    <header class="w-full h-[50px] backdrop-blur-md bg-white/10 shadow-sm">
+        <div class="flex justify-between items-center h-[45px] px-4">
+            <h1 class="font-black text-[25px]">EOSEM</h1>
+            <ul class="flex gap-4 [&>li>a:hover]:text-[#6D071A] font-bold">
+                <li><a href="{% url 'reportes' %}" class="text-xs">Ver Reportes</a></li>
+                <li><a href="javascript:void(0)" onclick="abrirModalDescarga()" class="text-xs">Descargar Reportes</a></li>
+                <li><a href="{% url 'logout' %}" class="text-xs">Cerrar Sesión</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden grid place-items-center p-2">
+        <div class="max-w-7xl w-full lg:w-[1100px] h-full p-2 rounded-2xl shadow-2xl backdrop-blur-lg bg-white/20 border border-white/30">
+            
+            <div class="flex flex-col justify-center mb-4 items-center">
+                <img src="{% static 'img/logotipo.png' %}" class="w-[100px] h-[100px]">
+                <h1 class="font-extrabold text-sm uppercase">TABLA DE CONVIVENCIA</h1>
+            </div>
+
+            <!-- Alertas -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="{% if message.tags == 'error' %}bg-red-500{% else %}bg-green-500{% endif %} text-white text-xs p-2 rounded mb-2 text-center shadow-lg">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="GET" action="{% url 'dashboard' %}" class="flex gap-2 mb-4">
+                <input name="busqueda" type="text" placeholder="Buscar..." value="{{ request.GET.busqueda }}"
+                    class="flex-1 border rounded-lg px-2 py-2 focus:ring-2 focus:ring-blue-400 outline-none">
+                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition text-sm">Buscar</button>
+                <a href="{% url 'dashboard' %}" class="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center text-sm">*</a>
+            </form>
+
+            <button onclick="abrirModalEstudiante()" class="bg-green-600 text-white px-4 py-2 rounded-lg mb-3 hover:bg-green-700 transition w-[220px] h-[42px] font-bold">
+                Registrar Estudiante
+            </button>
+
+            <!-- TABLA ACTUALIZADA CON SCROLL DE 2 PERSONAS -->
+            <div class="h-[135px] overflow-y-auto border rounded-lg bg-white/50">
+                <table class="w-full text-sm text-center">
+                    <thead class="bg-gray-200 sticky top-0 z-10">
+                        <tr class="text-[11px]">
+                            <th class="border p-2">ID</th>
+                            <th class="border p-2">CÓDIGO</th>
+                            <th class="border p-2">NOMBRE</th>
+                            <th class="border p-2 text-green-700">FTL</th>
+                            <th class="border p-2 text-yellow-700">FTG</th>
+                            <th class="border p-2 text-red-700">FTGR</th>
+                            <th class="border p-2 text-blue-700">INAS</th>
+                            <th class="border p-2">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in estudiantes %}
+                        <tr class="hover:bg-white/40 transition text-xs">
+                            <td class="border p-2 font-mono">{{ e.id }}</td>
+                            <td class="border p-2 font-bold">{{ e.codigo }}</td>
+                            <td class="border p-2 text-left">{{ e.nombre }}</td>
+                            <td class="border p-2 font-bold">{{ e.total_ftl }}</td>
+                            <td class="border p-2 font-bold">{{ e.total_ftg }}</td>
+                            <td class="border p-2 font-bold">{{ e.total_ftgr }}</td>
+                            <td class="border p-2 font-bold">{{ e.total_inas }}</td>
+                            <td class="border p-2">
+                                <div class="flex gap-1 justify-center">
+                                    <button onclick="abrirModalReporte('{{ e.id }}')" class="bg-yellow-500 text-white px-2 py-1 rounded text-[9px] font-bold">REPORTAR</button>
+                                    <button onclick="abrirModalEditar('{{ e.id }}', '{{ e.codigo }}', '{{ e.nombre }}', '{{ e.grado }}', '{{ e.acudiente }}', '{{ e.celular }}')" 
+                                            class="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold">EDITAR</button>
+                                    <button onclick="confirmarEliminar('{{ e.id }}', '{{ e.nombre }}')" 
+                                            class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold">ELIMINAR</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="p-4 text-gray-500">No hay registros.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs flex justify-center items-center mt-8">Escuela obra social el milagro 2026</p>
+        </div>
+
+    </main>
+
+    <!-- MODALES (Manteniendo tu estilo base) -->
+
+    <!-- REGISTRAR -->
+    <div id="modalEst" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-80 shadow-2xl">
+            <h2 class="font-bold mb-3 border-b">Registrar Estudiante</h2>
+            <form action="{% url 'guardar_estudiante' %}" method="POST">
+                {% csrf_token %}
+                <input name="cod" placeholder="Código" class="w-full border p-2 mb-2 rounded text-sm" required>
+                <input name="nom" placeholder="Nombre" class="w-full border p-2 mb-2 rounded text-sm" required>
+                <input name="gra" placeholder="Grado" class="w-full border p-2 mb-2 rounded text-sm">
+                <div class="flex gap-2 mt-2">
+                    <button type="submit" class="bg-green-600 text-white w-full p-2 rounded font-bold text-sm">Guardar</button>
+                    <button type="button" onclick="cerrarModalEst()" class="bg-gray-400 text-white w-full p-2 rounded text-sm">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDITAR -->
+    <div id="modalEdit" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-80 shadow-2xl border-t-4 border-blue-600">
+            <h2 class="font-bold mb-3 border-b">Editar Estudiante</h2>
+            <form id="formEditar" method="POST">
+                {% csrf_token %}
+                <input name="cod" id="edit_cod" class="w-full border p-2 mb-2 rounded text-sm" required>
+                <input name="nom" id="edit_nom" class="w-full border p-2 mb-2 rounded text-sm" required>
+                <input name="gra" id="edit_gra" class="w-full border p-2 mb-2 rounded text-sm">
+                <input name="acu" id="edit_acu" placeholder="Acudiente" class="w-full border p-2 mb-2 rounded text-sm">
+                <input name="cel" id="edit_cel" placeholder="Celular" class="w-full border p-2 mb-2 rounded text-sm">
+                <div class="flex gap-2 mt-2">
+                    <button type="submit" class="bg-blue-600 text-white w-full p-2 rounded font-bold text-sm">Actualizar</button>
+                    <button type="button" onclick="cerrarModalEdit()" class="bg-gray-400 text-white w-full p-2 rounded text-sm">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ELIMINAR CON CONTRASEÑA -->
+    <div id="modalEliminarConfirm" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+        <div class="bg-white p-6 rounded-xl w-80 shadow-2xl border-t-4 border-red-600">
+            <h2 class="font-bold text-sm mb-1 uppercase">¿Confirmar eliminación?</h2>
+            <p class="text-[10px] text-gray-500 mb-4 italic text-center">Estudiante: <span id="nombre_eliminar" class="font-bold text-red-600"></span></p>
+            <form id="formEliminar" method="POST">
+                {% csrf_token %}
+                <input type="password" name="password_confirm" placeholder="Contraseña de usuario" 
+                    class="w-full border p-2 mb-4 rounded text-sm text-center" required>
+                <button type="submit" class="bg-red-600 text-white w-full p-2 rounded font-bold text-sm mb-2">ELIMINAR PERMANENTE</button>
+                <button type="button" onclick="cerrarModalEliminar()" class="bg-gray-200 text-gray-600 w-full p-2 rounded text-sm">CANCELAR</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALES REPORTE Y DESCARGA (Iguales a los tuyos) -->
+    <div id="modalRep" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-80">
+            <form action="{% url 'guardar_reporte' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" id="estudiante_id_input" name="estudiante_id">
+                <select name="tipo" class="w-full border p-2 mb-2 rounded">
+                    <option value="ftl">Falta leve</option>
+                    <option value="ftg">Falta grave</option>
+                    <option value="ftgr">Falta gravísima</option>
+                    <option value="inas">Inasistencia</option>
+                </select>
+                <textarea name="descripcion" placeholder="Descripción" class="w-full border p-2 mb-2 rounded"></textarea>
+                <input type="date" name="fecha" class="w-full border p-2 mb-2 rounded" required>
+                <button type="submit" class="bg-yellow-500 text-white w-full p-2 rounded font-bold">Reportar</button>
+                <button type="button" onclick="cerrarModalRep()" class="mt-2 w-full text-xs text-gray-500">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalDescarga" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-80 shadow-2xl border-t-8 border-blue-900">
+            <h2 class="font-bold mb-3 border-b">Descargar PDF</h2>
+            <form action="{% url 'descargar_pdf' %}" method="POST">
+                {% csrf_token %}
+                <input name="cod_pdf" placeholder="Código" class="w-full border p-2 mb-2 rounded" required>
+                <input name="nom_pdf" placeholder="Nombre completo" class="w-full border p-2 mb-2 rounded" required>
+                <button type="submit" class="bg-blue-900 text-white w-full p-2 rounded font-bold">Generar PDF</button>
+                <button type="button" onclick="cerrarModalDescarga()" class="mt-2 w-full text-xs text-gray-500 uppercase">Cerrar</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalEstudiante() { document.getElementById("modalEst").classList.remove("hidden"); }
+        function cerrarModalEst() { document.getElementById("modalEst").classList.add("hidden"); }
+
+        function abrirModalEditar(id, cod, nom, gra, acu, cel) {
+            document.getElementById("formEditar").action = "/estudiante/editar/" + id + "/";
+            document.getElementById("edit_cod").value = cod;
+            document.getElementById("edit_nom").value = nom;
+            document.getElementById("edit_gra").value = gra;
+            document.getElementById("edit_acu").value = (acu === 'None' || acu === 'null') ? '' : acu;
+            document.getElementById("edit_cel").value = (cel === 'None' || cel === 'null') ? '' : cel;
+            document.getElementById("modalEdit").classList.remove("hidden");
+        }
+        function cerrarModalEdit() { document.getElementById("modalEdit").classList.add("hidden"); }
+
+        function confirmarEliminar(id, nombre) {
+            document.getElementById("nombre_eliminar").innerText = nombre;
+            document.getElementById("formEliminar").action = "/estudiante/eliminar/" + id + "/";
+            document.getElementById("modalEliminarConfirm").classList.remove("hidden");
+        }
+        function cerrarModalEliminar() { 
+            document.getElementById("modalEliminarConfirm").classList.add("hidden");
+            document.querySelector('input[name="password_confirm"]').value = "";
+        }
+
+        function abrirModalReporte(id) {
+            document.getElementById('estudiante_id_input').value = id;
+            document.getElementById("modalRep").classList.remove("hidden");
+        }
+        function cerrarModalRep() { document.getElementById("modalRep").classList.add("hidden"); }
+        function abrirModalDescarga() { document.getElementById("modalDescarga").classList.remove("hidden"); }
+        function cerrarModalDescarga() { document.getElementById("modalDescarga").classList.add("hidden"); }
+    </script>
+</body>
+</html>
