@@ -1,13 +1,18 @@
 from pathlib import Path
 import os
+import dj_database_url  # Importante para conectar la BD de Render
 
 # 1. RUTAS BASE
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 2. SEGURIDAD (Configuración de desarrollo)
-SECRET_KEY = 'django-insecure-g%y#^(y3zyfu6z-22gj!89a$*t*ufbi7%03s3z8=h)2=uh=eq0'
-DEBUG = True
-ALLOWED_HOSTS = []
+# 2. SEGURIDAD (Configuración adaptada para producción)
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-g%y#^(y3zyfu6z-22gj!89a$*t*ufbi7%03s3z8=h)2=uh=eq0')
+
+# Si existe la variable en Render, usa su valor (True/False); si no, por defecto es True localmente
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+
+# Permitir todos los hosts en Render para evitar bloqueos
+ALLOWED_HOSTS = ['*']
 
 # 3. APLICACIONES
 INSTALLED_APPS = [
@@ -20,9 +25,10 @@ INSTALLED_APPS = [
     'dashboard',  # Tu aplicación principal
 ]
 
-# 4. MIDDLEWARE
+# 4. MIDDLEWARE (Se añade WhiteNoise justo debajo de SecurityMiddleware)
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # <-- CLAVE PARA LOS ESTILOS EN RENDER
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -52,23 +58,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'eosem.wsgi.application'
 
-# 6. BASE DE DATOS (SQLite)
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
+# 6. BASE DE DATOS (Híbrida: Local vs Render)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'eosem_db',          # El nombre de la base de datos que creaste en Postgres
-        'USER': 'postgres',        # Tu usuario de Postgres (por defecto suele ser 'postgres')
-        'PASSWORD': 'r123', # La contraseña de tu usuario de Postgres
-        'HOST': 'localhost',         # O la IP de tu servidor de base de datos
-        'PORT': '5432',              # Puerto por defecto de PostgreSQL
+        'NAME': 'eosem_db',         
+        'USER': 'postgres',        
+        'PASSWORD': 'r123', 
+        'HOST': 'localhost',         
+        'PORT': '5432',              
     }
 }
+
+# Si estamos en Render, esta función reemplaza la configuración local por la de la nube automáticamente
+if os.environ.get('DATABASE_URL'):
+    DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
 
 # 7. VALIDACIÓN DE CONTRASEÑAS
 AUTH_PASSWORD_VALIDATORS = [
@@ -87,10 +91,13 @@ USE_TZ = True
 # 9. ARCHIVOS ESTÁTICOS (Imágenes, CSS, JS)
 STATIC_URL = 'static/'
 
-# Esta configuración permite que Django encuentre la carpeta static dentro de dashboard
+# Directorio de desarrollo
 STATICFILES_DIRS = [
     BASE_DIR / "dashboard" / "static",
 ]
+
+# Carpeta de producción (Donde 'collectstatic' guardará los archivos compilados)
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # <-- SOLUCIÓN AL ERROR DE RENDER
 
 # 10. OTROS
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
