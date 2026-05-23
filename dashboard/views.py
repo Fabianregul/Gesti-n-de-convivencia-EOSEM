@@ -443,69 +443,137 @@ def descargar_pdf(request):
         codigo = request.POST.get('cod_pdf')
         nombre = request.POST.get('nom_pdf')
 
-        estudiante = Estudiante.objects.filter(
-            codigo=codigo,
-            nombre__icontains=nombre
-        ).first()
+        # Buscamos al estudiante
+        estudiante = Estudiante.objects.filter(codigo=codigo, nombre__icontains=nombre).first()
 
-        if not estudiante:
-            messages.error(request, "Datos incorrectos.")
-            return redirect('dashboard')
+        if estudiante:
+            response = HttpResponse(content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Reporte_{estudiante.codigo}.pdf"'
 
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="Reporte_{estudiante.codigo}.pdf"'
+            p = canvas.Canvas(response, pagesize=letter)
+            width, height = letter
+            
+            # --- 1. CONFIGURACIÓN DE COLORES Y RUTAS ---
+            azul_institucional = colors.HexColor('#003366')
+            gris_suave = colors.HexColor('#F2F2F2')
+            ruta_logo = os.path.join(settings.BASE_DIR, 'dashboard/static/img/logotipo.png')
 
-        p = canvas.Canvas(response, pagesize=letter)
-        width, height = letter
+            # --- 2. LOGO CENTRADO ---
+            if os.path.exists(ruta_logo):
+                # drawImage(ruta, x, y, width, height) -> Centrado: (AnchoPagina/2 - AnchoImagen/2)
+                p.drawImage(ruta_logo, (width/2) - 40, height - 100, width=80, height=80, preserveAspectRatio=True, mask='auto')
 
-        azul = colors.HexColor('#003366')
-        gris = colors.HexColor('#F2F2F2')
+            # --- 3. ENCABEZADO INSTITUCIONAL ---
+            p.setFont("Helvetica-Bold", 16)
+            p.setFillColor(azul_institucional)
+            p.drawCentredString(width/2, height - 120, "ESCUELA OBRA SOCIAL EL MILAGRO")
+            
+            p.setFont("Helvetica", 10)
+            p.setFillColor(colors.black)
+            p.drawCentredString(width/2, height - 135, "SISTEMA DE GESTIÓN DE CONVIVENCIA ESCOLAR (EOSEM)")
+            p.drawCentredString(width/2, height - 150, "REGISTRO OFICIAL DE NOVEDADES Y OBSERVACIONES")
 
-        ruta_logo = os.path.join(settings.BASE_DIR, 'dashboard/static/img/logotipo.png')
+            p.setStrokeColor(azul_institucional)
+            p.setLineWidth(2)
+            p.line(50, height - 160, width - 50, height - 160)
 
-        # LOGO
-        if os.path.exists(ruta_logo):
-            p.drawImage(ruta_logo, (width/2)-40, height-100, width=80, height=80)
+            # --- 4. INFORMACIÓN DEL ESTUDIANTE (Cuadro de datos) ---
+            p.setFillColor(gris_suave)
+            p.rect(50, height - 230, width - 100, 60, fill=1, stroke=0)
+            
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 11)
+            p.drawString(60, height - 185, f"ESTUDIANTE: {estudiante.nombre.upper()}")
+            p.setFont("Helvetica", 10)
+            p.drawString(60, height - 205, f"CÓDIGO: {estudiante.codigo}")
+            p.drawString(250, height - 205, f"GRADO: {estudiante.grado}")
+            p.drawString(60, height - 220, f"ACUDIENTE: {estudiante.acudiente or 'No registrado'}")
+            p.drawString(250, height - 220, f"TELÉFONO: {estudiante.celular or 'No registrado'}")
 
-        # ENCABEZADO
-        p.setFont("Helvetica-Bold", 16)
-        p.setFillColor(azul)
-        p.drawCentredString(width/2, height-120, "ESCUELA OBRA SOCIAL EL MILAGRO")
+            # --- 5. RESUMEN DISCIPLINARIO (Estilo de medallas/contadores) ---
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(50, height - 255, "RESUMEN DISCIPLINARIO")
+            
+            # Dibujar pequeños cuadros para los totales
+            tipos = [
+                (f"FTL: {estudiante.total_ftl}", colors.green),
+                (f"FTG: {estudiante.total_ftg}", colors.orange),
+                (f"FTGR: {estudiante.total_ftgr}", colors.red),
+                (f"INAS: {estudiante.total_inas}", colors.blue)
+            ]
+            
+            x_offset = 50
+            for texto, color_base in tipos:
+                p.setFillColor(color_base)
+                p.rect(x_offset, height - 285, 85, 20, fill=1, stroke=0)
+                p.setFillColor(colors.white)
+                p.setFont("Helvetica-Bold", 9)
+                p.drawCentredString(x_offset + 42, height - 278, texto)
+                x_offset += 100
 
-        p.setFont("Helvetica", 10)
-        p.setFillColor(colors.black)
-        p.drawCentredString(width/2, height-140,
-                            "SISTEMA DE CONVIVENCIA ESCOLAR (EOSEM)")
+            # --- 6. TABLA DE DETALLES (Platypus para mejor estilo) ---
+            p.setFillColor(azul_institucional)
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(50, height - 315, "DETALLE DE OBSERVACIONES Y FALTAS")
 
-        # INFO ESTUDIANTE
-        p.setFont("Helvetica-Bold", 11)
-        p.drawString(60, height-190, f"ESTUDIANTE: {estudiante.nombre}")
-        p.drawString(60, height-210, f"CÓDIGO: {estudiante.codigo}")
-        p.drawString(250, height-210, f"GRADO: {estudiante.grado}")
+            data = [['FECHA', 'TIPO DE NOVEDAD', 'OBSERVACIÓN / DESCRIPCIÓN']]
+            reportes = estudiante.reportes.all().order_by('-fecha')
+            
+            for r in reportes:
+                fecha = r.fecha.strftime('%d/%m/%Y')
+                tipo = r.get_tipo_display()
+                # Cortamos la descripción si es muy larga para que quepa en la fila
+                desc = (r.descripcion[:75] + '..') if len(r.descripcion) > 75 else r.descripcion
+                data.append([fecha, tipo, desc])
 
-        # REPORTES
-        data = [['FECHA', 'TIPO', 'DESCRIPCIÓN']]
-        for r in estudiante.reportes.all():
-            data.append([
-                r.fecha.strftime('%d/%m/%Y'),
-                r.get_tipo_display(),
-                r.descripcion[:80]
+            # Crear la tabla
+            tabla = Table(data, colWidths=[80, 120, 300])
+            
+            # Estilo de la tabla
+            style = TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), azul_institucional),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, gris_suave])
             ])
+            tabla.setStyle(style)
 
-        table = Table(data, colWidths=[80, 120, 300])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), azul),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('BACKGROUND', (0, 1), (-1, -1), gris),
-        ]))
+            # Dibujar la tabla en el canvas
+            tabla.wrapOn(p, width, height)
+            tabla.drawOn(p, 50, height - 340 - (len(data) * 22))
 
-        table.wrapOn(p, width, height)
-        table.drawOn(p, 50, height-400)
+            # --- 7. PIE DE PÁGINA Y FIRMAS ---
+            # Posicionamos las firmas al final de la hoja de forma fija
+            p.setDash(1, 2) # Línea punteada
+            p.line(50, 100, 220, 100)
+            p.line(350, 100, 520, 100)
+            p.setDash() # Volver a línea sólida
+            
+            p.setFont("Helvetica", 9)
+            p.drawCentredString(135, 85, "FIRMA DEL ESTUDIANTE")
+            p.drawCentredString(135, 75, f"C.I. / Código: {estudiante.codigo}")
+            
+            p.drawCentredString(435, 85, "COORDINACIÓN / DOCENTE")
+            p.drawCentredString(435, 75, "Escuela Obra Social El Milagro")
 
-        p.showPage()
-        p.save()
+            # Fecha de expedición
+            import datetime
+            hoy = datetime.date.today().strftime('%d de %B de %Y')
+            p.setFont("Helvetica-Oblique", 8)
+            p.drawRightString(width - 50, 30, f"Reporte generado el: {hoy}")
 
-        return response
-
+            p.showPage()
+            p.save()
+            return response
+        
+        else:
+            messages.error(request, "Datos incorrectos. Verifica el código y nombre.")
+            return redirect('dashboard')
+            
     return redirect('dashboard')
